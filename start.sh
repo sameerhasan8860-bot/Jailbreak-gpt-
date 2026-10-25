@@ -1,29 +1,33 @@
 #!/bin/bash
 
-# Auto-restart setup — 5h 50m = 21000 seconds
-echo "🔥 EvilGPT Telegram Bot Starting... (21000s timeout)"
+set -u
+
+echo "EvilGPT Telegram Bot Starting..."
 
 # Install dependencies
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt || exit 1
 
-# Run bot with timeout
-timeout 21000 python3 main.py &
+# Run bot for up to 5 hours 50 minutes
+echo "Bot is starting..."
+timeout --signal=TERM --kill-after=30s 21000s python3 -u main.py
+BOT_STATUS=$?
 
-# Wait for it to be killed by timeout
-wait $!
+echo "Bot process ended with status: $BOT_STATUS"
+echo "Requesting next GitHub Actions run..."
 
-echo "💀 Old session ending... Spawning new GitHub Action..."
+# Trigger the next run
+if [ -z "${GH_TOKEN:-}" ] || [ -z "${GITHUB_REPOSITORY:-}" ]; then
+    echo "ERROR: GH_TOKEN or GITHUB_REPOSITORY is missing."
+    exit 1
+fi
 
-# Use GitHub Actions self-trigger via repo dispatch
-curl -X POST \
-  -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-  -H "Accept: application/vnd.github.v3+json" \
-  https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/dispatches \
-  -d '{
-    "event_type": "restart_evil_bot",
-    "client_payload": {
-      "ref": "main"
-    }
-  }'
+curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "Authorization: Bearer ${GH_TOKEN}" \
+  --header "Accept: application/vnd.github+json" \
+  --header "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/repos/${GITHUB_REPOSITORY}/dispatches" \
+  --data '{"event_type":"restart_evil_bot"}' \
+  || exit 1
 
-echo "🚀 New runner dispatched. Old one will die."
+echo "Next workflow dispatch request succeeded."
