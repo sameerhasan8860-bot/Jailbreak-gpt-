@@ -1,28 +1,43 @@
-name: Run EvilGPT Bot 24/7
+name: Run EvilGPT Bot
 
 on:
   workflow_dispatch:
   repository_dispatch:
     types: [restart_evil_bot]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: evilgpt-bot
+  cancel-in-progress: false
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 360
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set Up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Run Evil Bot
+      - name: Install Dependencies
         run: |
-          chmod +x start.sh
-          ./start.sh
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Run Bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}  # if using remote Ollama
+          OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          chmod +x start.sh
+          exec bash ./start.sh
