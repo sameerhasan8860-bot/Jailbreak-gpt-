@@ -1,0 +1,28 @@
+name: Run EvilGPT Bot 24/7
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [restart_evil_bot]
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run Evil Bot
+        run: |
+          chmod +x start.sh
+          ./start.sh
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}  # if using remote Ollama
